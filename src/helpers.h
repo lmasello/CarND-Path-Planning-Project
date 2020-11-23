@@ -34,13 +34,18 @@ constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 
+// For converting back and forth speed values
+const double MS2MPH = 2.23694;
+double mph2ms(double x) { return x / MS2MPH; }
+double ms2mph(double x) { return x * MS2MPH; }
+
 // Calculate distance between two points
 double distance(double x1, double y1, double x2, double y2) {
   return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
 }
 
 // Calculate closest waypoint to current x, y position
-int ClosestWaypoint(double x, double y, const vector<double> &maps_x, 
+int ClosestWaypoint(double x, double y, const vector<double> &maps_x,
                     const vector<double> &maps_y) {
   double closestLen = 100000; //large number
   int closestWaypoint = 0;
@@ -59,7 +64,7 @@ int ClosestWaypoint(double x, double y, const vector<double> &maps_x,
 }
 
 // Returns next waypoint of the closest waypoint
-int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x, 
+int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x,
                  const vector<double> &maps_y) {
   int closestWaypoint = ClosestWaypoint(x,y,maps_x,maps_y);
 
@@ -82,8 +87,8 @@ int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x,
 }
 
 // Transform from Cartesian x,y coordinates to Frenet s,d coordinates
-vector<double> getFrenet(double x, double y, double theta, 
-                         const vector<double> &maps_x, 
+vector<double> getFrenet(double x, double y, double theta,
+                         const vector<double> &maps_x,
                          const vector<double> &maps_y) {
   int next_wp = NextWaypoint(x,y, theta, maps_x,maps_y);
 
@@ -127,8 +132,8 @@ vector<double> getFrenet(double x, double y, double theta,
 }
 
 // Transform from Frenet s,d coordinates to Cartesian x,y
-vector<double> getXY(double s, double d, const vector<double> &maps_s, 
-                     const vector<double> &maps_x, 
+vector<double> getXY(double s, double d, const vector<double> &maps_s,
+                     const vector<double> &maps_x,
                      const vector<double> &maps_y) {
   int prev_wp = -1;
 
