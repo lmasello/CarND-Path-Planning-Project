@@ -50,9 +50,10 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
 
+  PathPlanner path_planner = PathPlanner();
+  path_planner.speed_diff = 0;  // [m/s]
+  path_planner.target_lane = 1; // Middle lane
   Vehicle ego_vehicle = Vehicle();
-  double update_rate = 0.02;  // [s]
-  PathPlanner path_planner = PathPlanner(ego_vehicle, update_rate);
 
   h.onMessage([&ego_vehicle, &path_planner, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy]
@@ -74,12 +75,17 @@ int main() {
           // j[1] is the data JSON object
 
           // Main car's localization Data
-          ego_vehicle.x = j[1]["x"];
-          ego_vehicle.y = j[1]["y"];
-          ego_vehicle.s = j[1]["s"];
-          ego_vehicle.d = j[1]["d"];
-          ego_vehicle.yaw = deg2rad(j[1]["yaw"]);
-          ego_vehicle.speed = mph2ms(j[1]["speed"]);
+          double car_x = j[1]["x"];
+          double car_y = j[1]["y"];
+          double car_s = j[1]["s"];
+          double car_d = j[1]["d"];
+          double car_yaw = deg2rad(j[1]["yaw"]);
+          double car_speed = mph2ms(j[1]["speed"]);
+          ego_vehicle.setX(car_x);
+          ego_vehicle.setY(car_y);
+          ego_vehicle.setS(car_s);
+          ego_vehicle.setD(car_d);
+          ego_vehicle.setYaw(car_yaw);
 
           // Previous path data given to the Planner
           path_planner.previous_path_x = j[1]["previous_path_x"];
@@ -88,6 +94,8 @@ int main() {
           // Previous path's end s and d values
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
+          if (path_planner.previous_path_x.size() > 0)
+            ego_vehicle.setS(end_path_s);
 
           // Sensor Fusion Data, a list of all other cars on the same side
           //   of the road.
@@ -100,8 +108,9 @@ int main() {
            *   sequentially every .02 seconds
            */
           path_planner.sense_environment(sensor_fusion);
-          path_planner.plan_manoeuvre();
+          path_planner.plan_manoeuvre(ego_vehicle);
           vector<vector<double>> next_vals = path_planner.generate_trajectory(
+            ego_vehicle,
             map_waypoints_s,
             map_waypoints_x,
             map_waypoints_y

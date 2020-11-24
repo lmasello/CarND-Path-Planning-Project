@@ -1,11 +1,17 @@
 #include "path_planner.h"
+#include <math.h>
+#include <string>
+#include <vector>
+#include <iostream>
+#include "helpers.h"
+#include "coordinates_helper.h"
+#include "vehicle.h"
+#include "spline.h"
+#include "json.hpp"
 
-PathPlanner::PathPlanner(Vehicle ego_vehicle, double update_rate) {
-  vector<vector<Vehicle>> tmp(3, vector<Vehicle>(1));
+PathPlanner::PathPlanner() {
+  vector<vector<Vehicle>> tmp(3, vector<Vehicle>(0));
   vehicles_in_lanes_ = tmp;
-  ego_vehicle = ego_vehicle;
-  target_speed = ego_vehicle.speed;
-  update_rate = update_rate;
 }
 
 void PathPlanner::sense_environment(json sensor_fusion) {
@@ -17,6 +23,10 @@ void PathPlanner::sense_environment(json sensor_fusion) {
   double x, y, s, vx, vy, object_speed, object_yaw, d;
   Vehicle vehicle_in_sight;
   for (auto detected_object : sensor_fusion) {
+    d = detected_object[6];
+    s = detected_object[5];
+    if (d < 0)
+      continue;
     id = detected_object[0];
     x = detected_object[1];
     y = detected_object[2];
@@ -24,86 +34,92 @@ void PathPlanner::sense_environment(json sensor_fusion) {
     vy = detected_object[4];
     object_speed = sqrt(pow(vx, 2) + pow(vy, 2));
     object_yaw = atan2(vy, vx);
-    d = detected_object[6];
-    s = detected_object[5];
     vehicle_in_sight = Vehicle(id, x, y, s, d, object_yaw, object_speed);
-    object_lane = fmod(d, LANE_WIDTH);
+    object_lane = (short) (d / LANE_WIDTH);
     vehicles_in_lanes_[object_lane].push_back(vehicle_in_sight);
   }
 }
 
-bool PathPlanner::vehicle_ahead() {
+bool PathPlanner::vehicle_ahead(Vehicle& ego_vehicle) {
   const unsigned int trajectory_size = previous_path_x.size();
   bool vehicle_ahead_ = false;
   for (auto vehicle_in_sight : vehicles_in_lanes_[target_lane]) {
-    double s_hat = vehicle_in_sight.s + trajectory_size * update_rate;
-    if ((s_hat - ego_vehicle.s) < S_THRESHOLD)
+    double s_hat = vehicle_in_sight.getS() + trajectory_size * UPDATE_RATE * vehicle_in_sight.getSpeed();
+    if ((s_hat - ego_vehicle.getS()) < S_THRESHOLD && (s_hat - ego_vehicle.getS()) > 0) {
       vehicle_ahead_ = true;
+    }
   }
   return vehicle_ahead_;
 }
 
-bool PathPlanner::loaded_lane(short lane) {
+bool PathPlanner::loaded_lane(short lane, Vehicle& ego_vehicle) {
   const unsigned int trajectory_size = previous_path_x.size();
   bool loaded_lane_ = false;
   for (auto vehicle_in_sight : vehicles_in_lanes_[lane]) {
-    double s_hat = vehicle_in_sight.s + trajectory_size * update_rate;
-    if ((ego_vehicle.s - S_THRESHOLD < s_hat) && (ego_vehicle.s + S_THRESHOLD > s_hat))
+    double s_hat = vehicle_in_sight.getS() + trajectory_size * UPDATE_RATE * vehicle_in_sight.getSpeed();
+    if ((ego_vehicle.getS() - S_THRESHOLD / 2 < s_hat) && (ego_vehicle.getS() + S_THRESHOLD > s_hat))
       loaded_lane_ = true;
   }
   return loaded_lane_;
 }
 
-void PathPlanner::plan_manoeuvre() {
-  short current_lane = fmod(ego_vehicle.d, LANE_WIDTH);
+void PathPlanner::plan_manoeuvre(Vehicle& ego_vehicle) {
+  short current_lane = (short) (ego_vehicle.getD() / LANE_WIDTH);
   target_lane = current_lane;
+  speed_diff = 0;
 
-  if (vehicle_ahead()) {
+  if (vehicle_ahead(ego_vehicle)) {
     //  Analyse a change to the left or right lane
-    if ((current_lane + 1 < NUMBER_OF_LANES) && !loaded_lane(current_lane + 1))
+    if ((current_lane + 1 < NUMBER_OF_LANES) && !loaded_lane(current_lane + 1, ego_vehicle))
       target_lane = current_lane + 1;
-    else if ((current_lane - 1 >= 0) && !loaded_lane(current_lane - 1))
+    else if ((current_lane - 1 >= 0) && !loaded_lane(current_lane - 1, ego_vehicle))
       target_lane = current_lane - 1;
     else
-      target_speed -= ACC_MAX * 1;  // ACC_MAX * 1s
+      speed_diff -= ACC_MAX * 1;  // ACC_MAX * 1s
   }
   else {
-    if (ego_vehicle.speed < SPEED_MAX)
-      target_speed += ACC_MAX * 1;  // ACC_MAX * 1s
+    if (ego_vehicle.getSpeed() < SPEED_MAX)
+      speed_diff += ACC_MAX;  // ACC_MAX * 1s
   }
 }
 
-void PathPlanner::init_path() {
+void PathPlanner::init_path(Vehicle& ego_vehicle) {
   if (previous_path_x.size() < 2) {  // Estimates with no previous path
-    path_x.push_back(ego_vehicle.x - cos(ego_vehicle.yaw) * ego_vehicle.speed * update_rate);
-    path_y.push_back(ego_vehicle.y - sin(ego_vehicle.yaw) * ego_vehicle.speed * update_rate);
+    path_x.push_back(ego_vehicle.getX() - cos(ego_vehicle.getYaw()));
+    path_y.push_back(ego_vehicle.getY() - sin(ego_vehicle.getYaw()));
   }
   else {  // Otherwise, initialize with the path history
-    ego_vehicle.x = previous_path_x[-1];
-    ego_vehicle.y = previous_path_y[-1];
-    double prev_y = previous_path_y[-2];
-    double prev_x = previous_path_x[-2];
+    unsigned int size = previous_path_x.size();
+    ego_vehicle.setX(previous_path_x[size-1]);
+    ego_vehicle.setY(previous_path_y[size-1]);
+    double prev_x = previous_path_x[size-2];
+    double prev_y = previous_path_y[size-2];
 
-    ego_vehicle.yaw = atan2(
-      prev_y / ego_vehicle.y,
-      prev_x / ego_vehicle.x
-    );
+    ego_vehicle.setYaw(atan2(
+      ego_vehicle.getY() - prev_y,
+      ego_vehicle.getX() - prev_x
+    ));
 
     path_x.push_back(prev_x);
     path_y.push_back(prev_y);
   }
 }
 
-void PathPlanner::generate_path_coord(vector<double> map_waypoints_s, vector<double> map_waypoints_x, vector<double> map_waypoints_y) {
-  init_path();
-  path_x.push_back(ego_vehicle.x);
-  path_y.push_back(ego_vehicle.y);
+void PathPlanner::generate_path_coord(
+  Vehicle& ego_vehicle,
+  vector<double> map_waypoints_s,
+  vector<double> map_waypoints_x,
+  vector<double> map_waypoints_y
+) {
+  init_path(ego_vehicle);
+  path_x.push_back(ego_vehicle.getX());
+  path_y.push_back(ego_vehicle.getY());
 
   // Generate points farther away
-  for (unsigned short i=1; i<5; i++) {
+  for (unsigned short i=1; i<4; i++) {
     vector<double> target_waypoints = getXY(
-      ego_vehicle.s + DEFAULT_CAR_LONG * 4 * i,
-      ego_vehicle.width + LANE_WIDTH * target_lane,
+      ego_vehicle.getS() + DEFAULT_CAR_LONG * 8 * i,
+      DEFAULT_CAR_WIDTH + LANE_WIDTH * target_lane,
       map_waypoints_s,
       map_waypoints_x,
       map_waypoints_y
@@ -114,15 +130,15 @@ void PathPlanner::generate_path_coord(vector<double> map_waypoints_s, vector<dou
 
   // Path coordinates according to the vehicle's position.
   for (unsigned int i = 0; i < path_x.size(); i++ ) {
-    double delta_x = path_x[i] - ego_vehicle.x;
-    double delta_y = path_y[i] - ego_vehicle.y;
+    double delta_x = path_x[i] - ego_vehicle.getX();
+    double delta_y = path_y[i] - ego_vehicle.getY();
 
-    path_x[i] = delta_x * cos(-ego_vehicle.yaw) - delta_y * sin(-ego_vehicle.yaw);
-    path_y[i] = delta_x * sin(-ego_vehicle.yaw) + delta_y * cos(-ego_vehicle.yaw);
+    path_x[i] = delta_x * cos(-ego_vehicle.getYaw()) - delta_y * sin(-ego_vehicle.getYaw());
+    path_y[i] = delta_x * sin(-ego_vehicle.getYaw()) + delta_y * cos(-ego_vehicle.getYaw());
   }
 }
 
-void PathPlanner::smooth_trajectory() {
+void PathPlanner::smooth_trajectory(Vehicle& ego_vehicle) {
   tk::spline s;
 	s.set_points(path_x, path_y);
 
@@ -138,10 +154,16 @@ void PathPlanner::smooth_trajectory() {
 	double target_dist = sqrt(pow(target_x, 2) + pow(target_y, 2));
 	double offset_x = 0.;
 
-	// Fit using the spline
-  double N = target_dist/(update_rate*target_speed/MS2MPH);
-  double step = target_x / N;
 	for (int i = previous_path_x.size(); i < NUMBER_OF_FITTED_POINTS; i++) {
+    ego_vehicle.setSpeed(ego_vehicle.getSpeed() + speed_diff);
+    if (ego_vehicle.getSpeed() > SPEED_MAX)
+      ego_vehicle.setSpeed(SPEED_MAX);
+    else if (ego_vehicle.getSpeed() < ACC_MAX)
+      ego_vehicle.setSpeed(ACC_MAX);
+    // Fit using the spline
+    double N = target_dist/(UPDATE_RATE*ego_vehicle.getSpeed());
+    double step = target_x / N;
+
 		double x_hat = offset_x + step;
 		double y_hat = s(x_hat);
 		offset_x = x_hat;
@@ -149,15 +171,16 @@ void PathPlanner::smooth_trajectory() {
     // From vehicle perspective to map perspective
 		double x_tmp = x_hat;
 		double y_tmp = y_hat;
-		x_hat = (x_tmp * cos(ego_vehicle.yaw) - y_tmp*sin(ego_vehicle.yaw));
-		y_hat = (x_tmp * sin(ego_vehicle.yaw) + y_tmp*cos(ego_vehicle.yaw));
+		x_hat = (x_tmp * cos(ego_vehicle.getYaw()) - y_tmp*sin(ego_vehicle.getYaw()));
+		y_hat = (x_tmp * sin(ego_vehicle.getYaw()) + y_tmp*cos(ego_vehicle.getYaw()));
 
-		next_x_vals.push_back(x_hat + ego_vehicle.x);
-		next_y_vals.push_back(y_hat + ego_vehicle.y);
+		next_x_vals.push_back(x_hat + ego_vehicle.getX());
+		next_y_vals.push_back(y_hat + ego_vehicle.getY());
 	}
 }
 
 vector<vector<double>> PathPlanner::generate_trajectory(
+  Vehicle& ego_vehicle,
   vector<double> map_waypoints_s,
   vector<double> map_waypoints_x,
   vector<double> map_waypoints_y
@@ -167,8 +190,8 @@ vector<vector<double>> PathPlanner::generate_trajectory(
   path_x.clear();
   path_y.clear();
 
-  generate_path_coord(map_waypoints_s, map_waypoints_x, map_waypoints_y);
-  smooth_trajectory();
+  generate_path_coord(ego_vehicle, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+  smooth_trajectory(ego_vehicle);
   vector<vector<double>> next_vals;
   next_vals.push_back(next_x_vals);
   next_vals.push_back(next_y_vals);

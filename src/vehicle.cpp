@@ -1,23 +1,23 @@
 #include "vehicle.h"
 
 Vehicle::Vehicle() {
-  id = -1;
-  x = 0.;
-  y = 0.;
-  s = 0.;
-  d = 0.;
-  yaw = 0.;
-  speed = 0.;
-  width = DEFAULT_CAR_WIDTH;
+  id_ = -1;
+  x_ = 0.;
+  y_ = 0.;
+  s_ = 0.;
+  d_ = 0.;
+  yaw_ = 0.;
+  speed_ = 0.;
+  width_ = DEFAULT_CAR_WIDTH;
 }
 
 Vehicle::Vehicle(int id, double x, double y, double s, double d, double yaw, double speed) {
-  id = id;
-  x = x;
-  y = y;
-  s = s;
-  d = d;
-  yaw = yaw;
-  speed = speed;
-  width = DEFAULT_CAR_WIDTH;
+  id_ = id;
+  x_ = x;
+  y_ = y;
+  s_ = s;
+  d_ = d;
+  yaw_ = yaw;
+  speed_ = speed;
+  width_ = DEFAULT_CAR_WIDTH;
 }

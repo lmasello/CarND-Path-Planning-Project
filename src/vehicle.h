@@ -25,14 +25,28 @@ public:
   // Destructor
   ~Vehicle() {};
 
-  int id;
-  double x;
-  double y;
-  double s;
-  double d;
-  double yaw;
-  double speed;
-  double width;
+  double getX() {  return x_; }
+  double getY() {  return y_; }
+  double getS() {  return s_; }
+  double getD() {  return d_; }
+  double getYaw() {  return yaw_; }
+  double getSpeed() {  return speed_; }
+  void setX(double x) { x_ = x; }
+  void setY(double y) { y_ = y; }
+  void setS(double s) { s_ = s; }
+  void setD(double d) { d_ = d; }
+  void setYaw(double yaw) { yaw_ = yaw; }
+  void setSpeed(double speed) { speed_ = speed; }
+
+private:
+  int id_;
+  double x_;
+  double y_;
+  double s_;
+  double d_;
+  double yaw_;
+  double speed_;
+  double width_;
 };
 
 #endif  // VEHICLE_H_
