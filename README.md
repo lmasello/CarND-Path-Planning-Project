@@ -2,6 +2,7 @@
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
 The Path Planning project consisted in using the vehicle's localization and sensor fusion data to safely navigate around a virtual highway with traffic.
+
 [//]: # (Image References)
 [example1]: ./img/example.gif "First video of the vehicle driving on the simulated highway"
 [example2]: ./img/example2.gif "Second video of the vehicle driving on the simulated highway"
