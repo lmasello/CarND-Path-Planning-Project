@@ -1,6 +1,14 @@
 # CarND-Path-Planning-Project
-Self-Driving Car Engineer Nanodegree Program
+[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
+The Path Planning project consisted in using the vehicle's localization and sensor fusion data to safely navigate around a virtual highway with traffic.
+[//]: # (Image References)
+[example1]: ./img/example.gif "First video of the vehicle driving on the simulated highway"
+[example2]: ./img/example2.gif "Second video of the vehicle driving on the simulated highway"
+
+![First video of the vehicle driving on the simulated highway][example1]
+![Second video of the vehicle driving on the simulated highway][example2]
+---
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
 
@@ -106,39 +114,24 @@ using the following settings:
 Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
 
 ## Project Instructions and Rubric
+List of [rubric points](https://review.udacity.com/#!/rubrics/1971/view) to pass the project.
 
 Note: regardless of the changes you make, your project must be buildable using
 cmake and make!
 
+### Reflection on how to generate paths
+In each iteration, I used a PathPlanner entity that performed the following actions (main.cpp - lines 110-117):
+- sense_environment
+- plan_manoeuvre
+- generate_trajectory
 
-## Call for IDE Profiles Pull Requests
+The sense_environment uses information about sensor fusion to detect nearby objects and allocates them into their
+respective lanes by analysing the Frenat's d coordinate. This information was the basis to determine the next action
+of the ego-vehicle. The vehicle observes whether there's another vehicle ahead interrupting its straight
+trajectory, and if so, it considers a lane-change to an empty lane. In case this action is not possible due to
+other vehicles already occupying that lane and preventing the car from doing a safe manoeuvre, then the vehicle slows down.
+At every moment the vehicle tries to drive at a speed close to the maximum speed of the highway (50 MPH).
 
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+Finally, based on the planned manoeuvre, the PathPlanner generates a sequence of points that the ego-vehicle should follow.
+This trajectory uses information about the previous trajectory and is smoothed using the spline.h library. As a result,
+the vehicle is able to drive on the simulated highway with traffic by following smooth trajectories according to all the rubric points.
