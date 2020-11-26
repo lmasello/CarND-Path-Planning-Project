@@ -136,3 +136,8 @@ At every moment the vehicle tries to drive at a speed close to the maximum speed
 Finally, based on the planned manoeuvre, the PathPlanner generates a sequence of points that the ego-vehicle should follow.
 This trajectory uses information about the previous trajectory and is smoothed using the spline.h library. As a result,
 the vehicle is able to drive on the simulated highway with traffic by following smooth trajectories according to all the rubric points.
+
+## Future work
+Based on [the solution presented by @mohankarthik](https://medium.com/@mohankarthik/path-planning-in-highways-for-an-autonomous-vehicle-242b91e6387d), implement:
+- lane weights
+- a voting system to take smarter decisions in the planning step
